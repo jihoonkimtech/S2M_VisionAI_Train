@@ -15,23 +15,16 @@ COMS AU142 USB 웹캠 영상에서 위험/구조 관련 객체를 검출한다.
 | v6 | (스크립트 미보관) | 폐기 | 데이터셋 잘못 선정해서 폐기 — 세부 실험 기록 없음 |
 | v7 (`train_local_v7.py`) | 7종 — v4 + `person_in_danger` 신설, 소화기 데이터셋 추가 | 폐기(v8이 이 체크포인트에서 fine-tuning) | confusion matrix 미전달 — 아래 "v7 실험 기록" |
 | v8 (`train_local_v8.py`) | 7종 — v7과 동일 구성, v7 가중치에서 fine-tuning + 증강 강화 | 폐기(v9로 대체) | `fire` 0.67 / `smoke` 0.52 recall, 아래 "v8 실험 기록" |
-| v9 | 7종 — v8과 동일(라벨 순서 동일) | **최종, 배포 중 (640만)** | `fire` 0.68 / `smoke` 0.52 recall, `person` 오검출 미해결 — 아래 "v9 실험 기록" |
+| v9 | 7종 — v8과 동일(라벨 순서 동일), smoke 데이터 셋 증가, person 데이터 셋 일부 생략해 다른 데이터셋과 개수 분포를 균일하게, smoke를 위한 증강 및 파라미터 추가(흐린 물체를 위한) | **최종, 배포 중 (640만)** | `fire` 0.68 / `smoke` 0.52 recall, `person` 오검출 미해결 — 아래 "v9 실험 기록" |
 
 > **최종 결론: v9이 최종 버전이다.** v6은 데이터셋을 잘못 골라 폐기됐고,
 > v7에서 `person_in_danger` 클래스를 새로 추가하고 소화기 데이터셋을
 > 보강했다. v8은 v7의 결과(`best.pt`)에서 이어받아 50 epoch만 추가로
-> fine-tuning하면서 증강을 더 강하게 준 버전이다. v9은 학습 스크립트를
-> 전달받지 못해 v8과 무엇이 달라졌는지 정확히는 알 수 없지만, 사용자가
-> 최종본으로 지정했고 confusion matrix 수치도 v8과 거의 동일하다(아래
+> fine-tuning하면서 증강을 더 강하게 준 버전이다.
 > "v9 실험 기록" 참고) — **다만 v8에서 지적했던 `person`의 background
 > 오검출 0.63~0.64는 v9에서도 그대로 남아 있다.** v1~v5의 실험 기록은
 > 지금의 데이터셋 구성(예: `fire-and-person-detection.zip` 제외)이 나온
 > 배경을 남기기 위해 그대로 보관한다.
->
-> v7→v8 fine-tuning 관계(`workspace/runs_7/scout_disaster_v7/weights/best.pt`
-> 경로 일치)는 이전과 같이 유효하다(아래 "v7 실험 기록" 참고). v9은
-> 스크립트가 없어 v8에서 이어받았는지 새로 학습했는지 확인할 수 없다.
-
 ## 파일 목록
 
 | 파일 | 용도 | 상태 |
@@ -620,117 +613,6 @@ v1부터 v9까지의 흐름을 요약하면: fire/smoke 문제는 데이터셋 �
 `person`의 background 오검출은 v8에서 처음 나타난 이후 v9까지 전혀
 개선되지 않은 유일한 리스크다. v9을 배포하는 것과는 별개로, 이 문제는
 후속 버전(v10 등)에서 반드시 짚고 넘어가야 할 항목으로 남겨둔다.
-
-## 재학습
-
-학습 스크립트는 이 저장소가 아니라 별도 학습 환경(GPU 머신)에서 실행한다.
-재현하려면 먼저 `train_local_v7.py`의 `ZIP_FILES` 8개를 `Scout2map-Dataset/`
-아래 두고 v7을 100 epoch로 학습해 `workspace/runs_7/scout_disaster_v7/weights/best.pt`를
-만든 다음, 같은 `Scout2map-Dataset/`에서 `train_local_v8.py`를 실행하면
-이 `best.pt`를 이어받아 50 epoch fine-tuning 후
-`workspace/runs_8/scout_disaster_v8/weights/`에 `best.pt`와 두
-ONNX(`s2m_vAI_lite_640_v8.onnx`, `s2m_vAI_lite_320_v8.onnx`)가 생성된다.
-**v9의 학습 스크립트는 전달받지 못해, v8 이후 무엇을 더 했는지는 이
-문서만으로 재현할 수 없다** — v9의 `s2m_vAI_lite_640_v9.onnx`/
-`s2m_vAI_lite_labels_v9.txt`는 이미 이 폴더에 반영·커밋 완료된 상태이지만,
-`train_local_v9.py`가 확보되면 같이 보관해야 재현 가능한 상태가 된다.
-`workspace/runs_7/scout_disaster_v7/weights/best.pt`가 없으면 v8은
-`yolov8n.pt`부터 새로 학습되므로, 재현성이 중요하면 이 경로를 의도적으로
-비워 처음부터 학습하는 것도 방법이다(위 "학습 설정" 참고).
-
-`train_local.py`(v1), `train_local_v2.py`(v2), `train_local_v3.py`(v3),
-`train_local_v5.py`(v5), `train_local_v7.py`(v7), `train_local_v8.py`(v8)는
-모두 폐기된 버전으로, 위 실험 기록을 재현하거나 비교할 때만 참고한다.
-v6과 v9 스크립트는 전달받지 못해 저장소에 없다. 각 스크립트는
-`MERGED_DIR`(`merged_dataset`~`merged_dataset_5`, `merged_dataset_7`,
-`merged_dataset_8`)와 `project`(`runs`~`runs_5`, `runs_7`, `runs_8`),
-출력 파일명(버전 접미사 `_v2`~`_v5`, `_v7`, `_v8`)이 모두 달라 같은
-`workspace/`에서 연달아 돌려도 서로 덮어쓰지 않는다 — 다만
-`EXTRACT_DIR`(`workspace/datasets/`)은 모든 버전이 공유하므로, 이 폴더에
-남아 있는 예전 압축 해제 결과가 다음 버전 학습에 의도치 않게 재사용될
-수 있다는 점은 감안해야 한다(위 "확인 필요" 참고).
-
-### 학습 스크립트 자체는 어디에 두나
-
-`models/`는 ONNX 산출물 전용으로 두고, 학습 스크립트와 실험 로그는 옆에
-`training/` 폴더를 새로 만들어 넣는 걸 추천한다.
-
-```
-src/scout_vision/
-├── models/                     ← 배포용 ONNX + 라벨 + 이 카드
-└── training/                   ← 학습 재현용 (colcon 빌드/설치 대상 아님)
-    ├── train_local.py          # v1, fire/smoke 분리 (참고용, 폐기됨)
-    ├── train_local_v2.py       # v2, 6개 데이터셋 전부 사용 (참고용, 폐기됨)
-    ├── train_local_v3.py       # v3, fire-and-person-detection.zip 제외 (참고용, 폐기됨)
-    ├── train_local_v4.py       # v4, v3 + fire/smoke 재분리 (참고용, 폐기됨)
-    ├── train_local_v5.py       # v5, fire-smoke-detection.zip 제외 대조군 (참고용, 폐기됨)
-    ├── train_local_v7.py       # v7, person_in_danger 신설 + 소화기 데이터셋 추가 (참고용, 폐기 — v8의 base)
-    ├── train_local_v8.py       # v8, v7 가중치에서 fine-tuning + 증강 강화 (참고용, 폐기)
-    └── v1_results.csv          # v1 학습 곡선 원본 (위 표의 출처)
-```
-
-v6·v9 스크립트는 전달받지 못해 이 폴더에 없다 — v9(현재 배포 버전)의
-학습 스크립트가 없다는 게 재현성 관점에서 가장 아쉬운 공백이니, 나중에
-확보되면 `train_local_v9.py`로 꼭 같이 보관해 두는 걸 권장한다.
-`train_local_v6.py`도 확보되면 마찬가지다.
-
-`v1_confusion_matrix.png` ~ `v5_confusion_matrix.png`, `v8_confusion_matrix.png`,
-`v9_confusion_matrix.png`는 `models/`에 함께 보관해 두어 각 버전의 실험
-기록과 나란히 확인할 수 있게 한다(v6·v7은 confusion matrix 이미지를
-전달받지 못해 없음).
-
-`training/`은 ROS2 패키지 빌드 산출물이 아니라 순수 참고 자료이므로
-`setup.py`의 `data_files`에 넣을 필요가 없다 — git에 소스로만 존재하면
-충분하다(`colcon build`가 이 폴더를 건드리지 않는다).
-
-## 이 폴더를 실제로 쓰려면 필요한 코드 변경 3곳
-
-모델 파일을 여기 두는 것만으로는 자동 인식되지 않는다. `scout_vision`은
-ROS2 colcon 패키지라 소스의 `models/`가 설치 결과물(`install/share/scout_vision/`)
-로 그대로 복사되지 않으며, launch 파일의 기본 경로도 현재는 빈 문자열이다.
-아래 세 파일을 함께 고쳐야 `ros2 launch scout_vision vision.launch.py`를
-인자 없이 실행했을 때 이 폴더의 기본 모델을 자동으로 찾는다.
-
-### 1. `setup.py` — models/를 설치 결과물에 포함
-
-```python
-data_files=[
-    ('share/ament_index/resource_index/packages',
-     ['resource/' + package_name]),
-    ('share/' + package_name, ['package.xml', 'README.md']),
-    (os.path.join('share', package_name, 'launch'),
-     glob('launch/*.launch.py')),
-    (os.path.join('share', package_name, 'config'),
-     glob('config/*.yaml')),
-    (os.path.join('share', package_name, 'models'),
-     glob('models/*.onnx') + glob('models/*.txt')),   # 추가
-],
-```
-
-### 2. `launch/vision.launch.py` — 기본 경로를 패키지 공유 디렉토리 기준으로 계산
-
-```python
-default_model = os.path.join(share, 'models', 's2m_vAI_lite_640_v9.onnx')
-default_labels = os.path.join(share, 'models', 's2m_vAI_lite_labels_v9.txt')
-...
-DeclareLaunchArgument('model_path', default_value=default_model),
-DeclareLaunchArgument('labels_path', default_value=default_labels),
-```
-
-현재는 두 인자 모두 `default_value=''`로 되어 있어, 인자를 생략하면
-`vision_node`가 "model file not found: <empty>"로 `/diagnostics`에 ERROR를
-낸다.
-
-### 3. `config/vision.yaml` — 문서용 기본값도 함께 갱신
-
-`model_path`/`labels_path`는 launch 인자가 최종적으로 덮어쓰므로 동작에는
-영향이 없지만, yaml만 보고 오해하지 않도록 존재하지 않는 예시 경로 대신
-이 폴더의 실제 파일명으로 바꿔 둔다.
-
-```yaml
-model_path: "install/scout_vision/share/scout_vision/models/s2m_vAI_lite_640_v9.onnx"
-labels_path: "install/scout_vision/share/scout_vision/models/s2m_vAI_lite_labels_v9.txt"
-```
 
 세 곳을 다 고친 뒤 `colcon build --packages-select scout_vision`으로
 재빌드하면 `ros2 launch scout_vision vision.launch.py`를 인자 없이 실행해도
